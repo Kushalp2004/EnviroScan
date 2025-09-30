@@ -1,37 +1,122 @@
-# Air Quality Data Pipeline: Module 1 Collection
+🌍 EnviroScan: AI-Powered Pollution Source Identifier
 
-This document outlines the data collection process executed on **September 15, 2025**. The project uses a two-step pipeline to first gather monitoring station locations and then collect real-time air quality data for those locations.
+EnviroScan is an AI-driven environmental monitoring system that collects, processes, and visualizes air quality data.
+It predicts pollution sources (e.g., Vehicular, Industrial, Burning, Dust, Other) using machine learning,
+and provides interactive geospatial maps and dashboards for decision-makers.
 
-## Scripts
+✨ Features
 
--   **`fetch_locations.py`**: Queries the OpenAQ API to fetch a list of government air quality monitoring stations within India.
--   **`fetch_pollution.py`**: Reads the locations from the generated CSV and queries the OpenWeatherMap API for current air pollution data at each location.
+✅ Data Collection from:
 
----
-## Outputs
+OpenAQ
+ — monitoring station locations
 
--   **`global_locations_cleaned.csv`**: A list of unique monitoring stations with their coordinates.
--   **`pollution_data.csv`**: The consolidated dataset containing real-time pollution measurements.
+OpenWeatherMap
+ — air pollution & weather API
 
----
-## Data Schema (`pollution_data.csv`)
+✅ Preprocessing & Feature Engineering (cleaning, labeling, scaling)
 
--   **location\_id**: The unique identifier for the monitoring station, sourced from OpenAQ or manually assigned.
--   **pm2\_5**: Concentration of Particulate Matter 2.5 ($µg/m³$).
--   **pm10**: Concentration of Particulate Matter 10 ($µg/m³$).
--   **no2**: Concentration of Nitrogen Dioxide ($µg/m³$).
--   **so2**: Concentration of Sulphur Dioxide ($µg/m³$).
--   **o3**: Concentration of Ozone ($µg/m³$).
--   **co**: Concentration of Carbon Monoxide ($µg/m³$).
--   **aqi**: The calculated Air Quality Index (1 = Good, 5 = Very Poor).
--   **data\_source**: OpenWeatherMap (for pollution data) and OpenAQ (for location data).
+✅ Source Classification using ML (Random Forest)
+
+✅ Geospatial Mapping with layered heatmaps (PM2.5, PM10) + clustered source markers
+
+✅ Interactive Dashboard (Streamlit):
+
+Confidence-aware predictions (“Uncertain” if <60%)
+
+Multi-pollutant trend charts (PM2.5, PM10, NO₂, SO₂, O₃, CO)
+
+Pie charts for source distribution
+
+Interactive heatmaps + source markers
+
+Download filtered data as CSV or PDF
+
+✅ Final Deliverables:
+
+pollution_map.html (interactive map)
+
+EnviroScan_Dashboard (Streamlit app)
+
+report.pdf (project summary with diagrams/screenshots)
+
+slides.pdf (presentation deck)
+
+📂 Project Structure
+EnviroScan/
+│── data/
+│   ├── global_locations_cleaned.csv
+│   ├── specific_locations_cleaned.csv
+│   ├── pollution_data.csv
+│
+│── src/
+│   ├── get_locations.py        # Fetch locations from OpenAQ
+│   ├── enrich_data.py          # Collect pollution data (OpenWeatherMap)
+│   ├── create_map.py           # Train model + generate pollution_map.html
+│   ├── dashboard.py            # Streamlit dashboard
+│   ├── data_processing.ipynb   # Exploratory cleaning & feature engineering
+│
+│── pollution_map.html          # Interactive pollution heatmap
+│── requirements.txt            # Project dependencies
+│── report.pdf                  # Final project report (deliverable)
+│── slides.pdf                  # 6-slide presentation (deliverable)
+
+⚙️ Installation & Setup
+1. Clone the Repository
+git clone https://github.com/yourusername/enviro-scan.git
+cd enviro-scan
+
+2. Create Virtual Environment
+python -m venv venv
+source venv/bin/activate   # (Linux/Mac)
+venv\Scripts\activate      # (Windows)
+
+3. Install Dependencies
+pip install -r requirements.txt
+
+4. Install System Dependency for PDF Export
+
+Required only if you want PDF downloads in dashboard.
+
+# On Ubuntu/Debian
+sudo apt-get install wkhtmltopdf
+
+🚀 Running the Project
+(A) Data Collection
+python src/get_locations.py       # Fetch monitoring station locations
+python src/enrich_data.py         # Fetch latest pollution data
+
+(B) Generate Map & Train Model
+python src/create_map.py
 
 
+Produces:
 
----
-## Assumptions & Process
+pollution_source_model.joblib (trained model)
 
--   Location data was collected for a bounding box approximating the geographical limits of **India**.
--   The pollution data represents a **real-time snapshot** taken at the moment the `fetch_pollution.py` script was executed for each location.
--   A **one-second delay** was enforced between API calls to OpenWeatherMap to respect rate limits and ensure stable data collection.
--   The final dataset relies on the availability and accuracy of the public APIs at the time of data collection.
+data_scaler.joblib (scaler)
+
+pollution_map.html (interactive map with heatmaps + clusters)
+
+(C) Launch Dashboard
+streamlit run src/dashboard.py
+
+
+Open in browser → http://localhost:8501
+
+📊 Example Outputs
+Pollution Map (pollution_map.html)
+
+Layered heatmaps for PM2.5 and PM10
+
+Color-coded source clusters (Industrial=🔴, Vehicular=🔵, Burning=🟠, Dust=🟢, Other=⚪, Uncertain=⚫)
+
+Dashboard (dashboard.py)
+
+Multi-pollutant trend chart
+
+Source distribution pie chart
+
+Interactive heatmap + markers
+
+Data download as CSV/PDF

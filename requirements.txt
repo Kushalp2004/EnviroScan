@@ -2,3 +2,10 @@ pandas
 requests
 osmnx
 python-dotenv
+folium
+scikit-learn
+joblib
+streamlit
+streamlit-folium
+plotly
+pdfkit
