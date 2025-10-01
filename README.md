@@ -82,16 +82,27 @@ pdfkit – Report generation
 
 📂 Project Structure
 EnviroScan/
+
 │── data/
+
 │   ├── pollution_data.csv
+
 │   ├── specific_locations_cleaned.csv
+
 │   ├── data_scaler.joblib
+
 │── src/
+
 │   ├── dashboard.py          # Main Streamlit dashboard
+
 │   ├── create_map.py         # Folium map generation
+
 │   ├── model_training.ipynb  # Notebook for training & evaluation
+
 │── pollution_source_model.joblib
+
 │── requirements.txt
+
 │── README.md
 
 
@@ -148,8 +159,5 @@ Open your browser at http://localhost:8501
 🙌 Collaborators
 
 Gautham K
+
 Kushal P Hiremath
-
-OpenAQ API, OpenWeatherMap API, OSMnx for open-source datasets.
-
-Streamlit, Plotly, and Folium communities for visualization tools.
