@@ -1,122 +1,155 @@
 🌍 EnviroScan: AI-Powered Pollution Source Identifier
 
-EnviroScan is an AI-driven environmental monitoring system that collects, processes, and visualizes air quality data.
-It predicts pollution sources (e.g., Vehicular, Industrial, Burning, Dust, Other) using machine learning,
-and provides interactive geospatial maps and dashboards for decision-makers.
+EnviroScan is an AI-powered system for monitoring and identifying pollution sources across cities.
+It combines air quality data, weather information, and geospatial features with machine learning to classify pollution sources (Vehicular, Industrial, Agricultural, etc.) and provide real-time analytics, alerts, and interactive maps.
+
+📖 Table of Contents
 
 ✨ Features
 
-✅ Data Collection from:
+🛠️ Tech Stack
 
-OpenAQ
- — monitoring station locations
+📂 Project Structure
 
-OpenWeatherMap
- — air pollution & weather API
+⚙️ Installation
 
-✅ Preprocessing & Feature Engineering (cleaning, labeling, scaling)
+▶️ Running the Dashboard
 
-✅ Source Classification using ML (Random Forest)
+📊 Dashboard Features
 
-✅ Geospatial Mapping with layered heatmaps (PM2.5, PM10) + clustered source markers
+📌 Example Visuals
 
-✅ Interactive Dashboard (Streamlit):
+📜 Documentation
 
-Confidence-aware predictions (“Uncertain” if <60%)
+🙌 Collaborators
 
-Multi-pollutant trend charts (PM2.5, PM10, NO₂, SO₂, O₃, CO)
+✨ Features
 
-Pie charts for source distribution
+✅ Data Collection & Preprocessing
 
-Interactive heatmaps + source markers
+-- OpenAQ API for pollution data (PM2.5, PM10, NO₂, SO₂, O₃, CO).
 
-Download filtered data as CSV or PDF
+-- OpenWeatherMap API for weather data.
 
-✅ Final Deliverables:
+-- OSMnx for extracting geospatial features.
 
-pollution_map.html (interactive map)
+-- Cleaned, normalized, and feature-engineered dataset.
 
-EnviroScan_Dashboard (Streamlit app)
+✅ Machine Learning Model
 
-report.pdf (project summary with diagrams/screenshots)
+-- Pollution source classification using Random Forest.
 
-slides.pdf (presentation deck)
+-- Confidence thresholding (predictions below 60% → “Uncertain”).
+
+-- Saved model + scaler for reproducibility.
+
+✅ Interactive Dashboard (Streamlit)
+
+-- Multi-tab layout: Map | Analytics | Alerts | Predict.
+
+-- Multi-select filters for cities and sources.
+
+-- Heatmaps + marker clusters (Folium).
+
+-- Pollutant trend charts (Plotly).
+
+-- Alerts when AQI > 150.
+
+-- Upload CSV → get predictions → download results.
+
+✅ Deliverables
+
+-- pollution_map.html – Interactive map.
+
+-- EnviroScan_Dashboard – Streamlit app.
+
+
+🛠️ Tech Stack
+
+Python
+
+Pandas, NumPy – Data processing
+
+scikit-learn, joblib – Model training & inference
+
+Streamlit, streamlit-folium, Plotly – Dashboard & visualization
+
+Folium, OSMnx – Geospatial mapping
+
+Requests – API integration
+
+pdfkit – Report generation
 
 📂 Project Structure
 EnviroScan/
 │── data/
-│   ├── global_locations_cleaned.csv
-│   ├── specific_locations_cleaned.csv
 │   ├── pollution_data.csv
-│
+│   ├── specific_locations_cleaned.csv
+│   ├── data_scaler.joblib
 │── src/
-│   ├── get_locations.py        # Fetch locations from OpenAQ
-│   ├── enrich_data.py          # Collect pollution data (OpenWeatherMap)
-│   ├── create_map.py           # Train model + generate pollution_map.html
-│   ├── dashboard.py            # Streamlit dashboard
-│   ├── data_processing.ipynb   # Exploratory cleaning & feature engineering
-│
-│── pollution_map.html          # Interactive pollution heatmap
-│── requirements.txt            # Project dependencies
-│── report.pdf                  # Final project report (deliverable)
-│── slides.pdf                  # 6-slide presentation (deliverable)
+│   ├── dashboard.py          # Main Streamlit dashboard
+│   ├── create_map.py         # Folium map generation
+│   ├── model_training.ipynb  # Notebook for training & evaluation
+│── pollution_source_model.joblib
+│── requirements.txt
+│── README.md
 
-⚙️ Installation & Setup
-1. Clone the Repository
-git clone https://github.com/yourusername/enviro-scan.git
-cd enviro-scan
 
-2. Create Virtual Environment
+⚙️ Installation
+
+Clone the repo and install dependencies:
+
+git clone https://github.com/your-username/enviroScan.git
+cd enviroScan
+
+# Create virtual environment (recommended)
 python -m venv venv
-source venv/bin/activate   # (Linux/Mac)
-venv\Scripts\activate      # (Windows)
+source venv/bin/activate   # Mac/Linux
+venv\Scripts\activate      # Windows
 
-3. Install Dependencies
+# Install dependencies
 pip install -r requirements.txt
 
-4. Install System Dependency for PDF Export
 
-Required only if you want PDF downloads in dashboard.
+Note: For PDF export, install wkhtmltopdf (system dependency):
 
-# On Ubuntu/Debian
-sudo apt-get install wkhtmltopdf
+sudo apt-get install wkhtmltopdf   # Ubuntu/Debian
+brew install wkhtmltopdf           # Mac
 
-🚀 Running the Project
-(A) Data Collection
-python src/get_locations.py       # Fetch monitoring station locations
-python src/enrich_data.py         # Fetch latest pollution data
+▶️ Running the Dashboard
 
-(B) Generate Map & Train Model
-python src/create_map.py
+Run the Streamlit app:
 
-
-Produces:
-
-pollution_source_model.joblib (trained model)
-
-data_scaler.joblib (scaler)
-
-pollution_map.html (interactive map with heatmaps + clusters)
-
-(C) Launch Dashboard
 streamlit run src/dashboard.py
 
 
-Open in browser → http://localhost:8501
+Open your browser at http://localhost:8501
+.
 
-📊 Example Outputs
-Pollution Map (pollution_map.html)
+📊 Dashboard Features
 
-Layered heatmaps for PM2.5 and PM10
+🗺 Map Tab → Interactive Folium map with heatmaps and clustered pollution sources.
 
-Color-coded source clusters (Industrial=🔴, Vehicular=🔵, Burning=🟠, Dust=🟢, Other=⚪, Uncertain=⚫)
+📊 Analytics Tab → Pie charts for source distribution + trend charts for pollutants.
 
-Dashboard (dashboard.py)
+⚠ Alerts Tab → Warnings when AQI > 150 with details of high-risk locations.
 
-Multi-pollutant trend chart
+🤖 Predict Tab → Upload CSV → Get ML-based source predictions → Download results.
 
-Source distribution pie chart
+📌 Example Visuals
 
-Interactive heatmap + markers
+🌍 Pollution Sources Map
 
-Data download as CSV/PDF
+📊 Analytics Tab
+
+⚠ Alerts
+
+
+🙌 Collaborators
+
+Gautham K
+Kushal P Hiremath
+
+OpenAQ API, OpenWeatherMap API, OSMnx for open-source datasets.
+
+Streamlit, Plotly, and Folium communities for visualization tools.
