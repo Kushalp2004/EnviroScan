@@ -111,11 +111,14 @@ EnviroScan/
 Clone the repo and install dependencies:
 
 git clone https://github.com/your-username/enviroScan.git
+
 cd enviroScan
 
 # Create virtual environment (recommended)
 python -m venv venv
+
 source venv/bin/activate   # Mac/Linux
+
 venv\Scripts\activate      # Windows
 
 # Install dependencies
@@ -125,6 +128,7 @@ pip install -r requirements.txt
 Note: For PDF export, install wkhtmltopdf (system dependency):
 
 sudo apt-get install wkhtmltopdf   # Ubuntu/Debian
+
 brew install wkhtmltopdf           # Mac
 
 ▶️ Running the Dashboard
