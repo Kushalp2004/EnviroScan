@@ -1,245 +1,188 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 import joblib
-import json
+import plotly.express as px
+import pdfkit
 import folium
 from streamlit_folium import st_folium
-import plotly.express as px
-from folium.plugins import HeatMap
 from datetime import datetime
-from streamlit_autorefresh import st_autorefresh
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.lib import colors
 
-# --- PAGE CONFIGURATION ---
-st.set_page_config(
-    page_title="EnviroScan Dashboard",
-    page_icon="🌍",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+# -------------------- PAGE CONFIG --------------------
+st.set_page_config(layout="wide", page_title="🌍 EnviroScan Dashboard")
 
-# --- FUTURISTIC STYLES ---
+# --- Custom Dark Theme ---
 st.markdown("""
-    <style>
-        body {
-            background-color: #0e1117;
-            color: #ffffff;
-            font-family: 'Roboto Mono', monospace;
-        }
-        .stMetric {
-            background: rgba(20, 20, 20, 0.7);
-            border: 1px solid #2e2e2e;
-            border-radius: 12px;
-            padding: 10px;
-            box-shadow: 0px 0px 8px rgba(0,255,255,0.2);
-        }
-        .stButton button {
-            background: linear-gradient(90deg, #00c6ff, #0072ff);
-            color: white;
-            border-radius: 8px;
-            border: none;
-            font-weight: bold;
-        }
-        .css-1d391kg, .css-1dp5vir {
-            background-color: #111 !important;
-        }
-    </style>
+<style>
+    .stApp { background-color: #0e1117; color: #ffffff; }
+    .css-1d391kg { background-color: #161a23; }
+    .stMetric { background-color: #1f2937; padding: 15px; border-radius: 10px; }
+    .stTabs [aria-selected="true"] { background-color: #1f2937; color: #00FFFF; }
+    h1, h2, h3, h4, h5 { color: #00FFFF; }
+</style>
 """, unsafe_allow_html=True)
 
-# --- DATA LOADING ---
+# -------------------- LOAD DATA --------------------
 @st.cache_data
 def load_data():
-    df_locations = pd.read_csv("data/specific_locations_cleaned.csv")
-    df_pollution = pd.read_csv("data/pollution_data.csv")
+    try:
+        df = pd.read_csv("data/final_predictions.csv")
+        df.dropna(subset=['latitude', 'longitude', 'city'], inplace=True)
+        return df
+    except FileNotFoundError:
+        st.error("❌ Data file not found: data/final_predictions.csv")
+        st.info("Please run your data pipeline to generate it.")
+        return None
 
-    if 'city' in df_pollution.columns:
-        df_pollution = df_pollution.drop(columns=['city'])
-
-    df = pd.merge(df_pollution, df_locations, left_on='location_id', right_on='id', how='left')
-
-    def extract_coords(coord_str):
-        try:
-            valid_json_str = str(coord_str).replace("'", '"')
-            coord_dict = json.loads(valid_json_str)
-            return coord_dict.get('latitude'), coord_dict.get('longitude')
-        except Exception:
-            return None, None
-
-    df['latitude'], df['longitude'] = zip(*df['coordinates'].apply(extract_coords))
-    df.dropna(subset=['latitude', 'longitude'], inplace=True)
-
-    # ✅ Fix city handling
-    df['city'] = df['city'].fillna(df['name'])   # fallback if city missing
-    df['city'] = df['city'].astype(str)
-
-    pollutant_cols = ['pm2_5', 'pm10', 'no2', 'so2', 'o3', 'co', 'aqi']
-    for col in pollutant_cols:
-        df[col] = pd.to_numeric(df[col], errors='coerce')
-        df[col] = df[col].fillna(df[col].median())
-
-    df['timestamp'] = pd.to_datetime(df['timestamp'], errors='coerce')
-    df.dropna(subset=['timestamp'], inplace=True)
-
-    return df
-
-@st.cache_resource
-def load_model_and_scaler():
-    model = joblib.load('pollution_source_model.joblib')
-    scaler = joblib.load('data_scaler.joblib')
-    return model, scaler
-
-# --- LOAD DATA & MODEL ---
 df = load_data()
-model, scaler = load_model_and_scaler()
+if df is None:
+    st.stop()
 
-features = ['pm2_5', 'pm10', 'no2', 'so2', 'o3', 'co', 'aqi', 'latitude', 'longitude']
-X_scaled = scaler.transform(df[features])
-df['predicted_source'] = model.predict(X_scaled)
-df['prediction_confidence'] = model.predict_proba(X_scaled).max(axis=1)
-df['final_prediction'] = df.apply(
-    lambda row: row['predicted_source'] if row['prediction_confidence'] >= 0.6 else 'Uncertain',
-    axis=1
-)
+# -------------------- SIDEBAR FILTERS --------------------
+st.sidebar.header("🔧 Control Panel")
+sources = sorted(df["predicted_source"].unique().tolist())
+selected_sources = st.sidebar.multiselect("Pollution Sources", sources, default=sources)
+cities = sorted(df["city"].unique().tolist())
+selected_cities = st.sidebar.multiselect("Cities", cities, default=cities[:5])
 
-# --- SIDEBAR CONTROL PANEL ---
-st.sidebar.title("🛠 Control Panel")
+df_filtered = df[df["predicted_source"].isin(selected_sources) & df["city"].isin(selected_cities)]
 
-# ✅ Fixed refresh button
-if st.sidebar.button("🔄 Refresh Data"):
-    st.cache_data.clear()
-    st.rerun()
+# -------------------- DASHBOARD TITLE --------------------
+st.title("🌍 EnviroScan: AI-Powered Pollution Source Identifier")
 
-# Auto refresh every 5 min
-st_autorefresh(interval=5 * 60 * 1000, key="autorefresh")
+# -------------------- METRICS --------------------
+col1, col2, col3, col4 = st.columns(4)
+avg_aqi = df_filtered['aqi'].mean()
+high_risk = len(df_filtered[df_filtered["aqi"] > 3.0])
+dominant_source = df_filtered["predicted_source"].mode()[0] if not df_filtered.empty else "N/A"
 
-sources = st.sidebar.multiselect("Pollution Sources", options=df['final_prediction'].unique(),
-                                 default=list(df['final_prediction'].unique()))
+col1.metric("Total Locations", f"{df_filtered.shape[0]}")
+col2.metric("Average AQI", f"{avg_aqi:.2f}")
+col3.metric("High Risk Areas", f"{high_risk}")
+col4.metric("Dominant Source", dominant_source)
 
-cities = st.sidebar.multiselect("Cities", options=sorted(df['city'].unique()), default=[])
+# -------------------- TABS --------------------
+tab1, tab2, tab3, tab4 = st.tabs(["🗺️ Map", "📊 Analytics", "⚠️ Alerts", "🤖 Predict"])
 
-primary_pollutant = st.sidebar.selectbox("Primary Pollutant", 
-                                         ['pm2_5','pm10','no2','so2','o3','co','aqi'])
-
-last_update = datetime.now().strftime("%H:%M:%S")
-st.sidebar.markdown(f"⏱ Last Updated: **{last_update}**")
-
-# Apply filters
-df_filtered = df[df['final_prediction'].isin(sources)]
-if cities:
-    df_filtered = df_filtered[df_filtered['city'].isin(cities)]
-
-# --- TABS ---
-tab1, tab2, tab3, tab4 = st.tabs(["🗺 Map", "📊 Analytics", "⚠ Alerts", "🤖 Predict"])
-
-# --- MAP TAB ---
+# -------------------- MAP TAB --------------------
 with tab1:
-    st.header("🗺 Pollution Sources Map")
+    st.subheader("🗺️ Pollution Sources Map")
     if df_filtered.empty:
-        st.warning("No data available for selected filters.")
+        st.warning("No data to display for the selected filters.")
     else:
-        map_center = [df_filtered['latitude'].mean(), df_filtered['longitude'].mean()]
-        m = folium.Map(location=map_center, zoom_start=6, tiles="CartoDB dark_matter")
+        m = folium.Map(location=[df_filtered["latitude"].mean(), df_filtered["longitude"].mean()],
+                       zoom_start=6, tiles="CartoDB dark_matter")
 
-        heat_data = df_filtered[['latitude','longitude',primary_pollutant]].values.tolist()
-        HeatMap(heat_data, radius=15, name=f"{primary_pollutant} Heatmap").add_to(m)
-
-        color_map = {'Vehicular':'blue','Industrial':'red','Burning':'orange','Dust':'gray','Other':'purple','Uncertain':'darkgreen'}
+        colors = {'Vehicular': 'blue', 'Industrial': 'red', 'Burning': 'orange', 'Dust': 'beige', 'Other': 'gray'}
         for _, row in df_filtered.iterrows():
             folium.CircleMarker(
-                location=[row['latitude'], row['longitude']],
+                location=[row["latitude"], row["longitude"]],
                 radius=6,
-                color=color_map.get(row['final_prediction'], 'white'),
-                popup=f"<b>{row['name']}</b><br>Source: {row['final_prediction']}<br>AQI: {row['aqi']}<br>Confidence: {row['prediction_confidence']:.2f}",
-                fill=True,
-                fill_color=color_map.get(row['final_prediction'], 'white'),
-                fill_opacity=0.7
+                popup=f"<b>{row['name']}</b><br>{row['city']}<br>Source: {row['predicted_source']}<br>AQI: {row['aqi']:.2f}",
+                color=colors.get(row["predicted_source"], "gray"),
+                fill=True, fill_opacity=0.8
             ).add_to(m)
+        st_folium(m, height=500, use_container_width=True)
 
-        folium.LayerControl().add_to(m)
-        st_folium(m, use_container_width=True)
-
-# --- ANALYTICS TAB ---
+# -------------------- ANALYTICS TAB --------------------
 with tab2:
-    st.header("📊 Pollution Analytics")
+    st.subheader("📊 Source Analytics")
     if df_filtered.empty:
-        st.error("No data for selected filters.")
+        st.warning("No data available.")
     else:
         col1, col2 = st.columns(2)
-        col1.metric("Average AQI", f"{df_filtered['aqi'].mean():.2f}")
-        col2.metric("Uncertain Predictions", f"{(df_filtered['final_prediction']=='Uncertain').mean()*100:.1f}%")
+        with col1:
+            source_counts = df_filtered["predicted_source"].value_counts()
+            st.plotly_chart(px.pie(source_counts, values=source_counts.values,
+                                   names=source_counts.index,
+                                   title="Source Distribution",
+                                   color_discrete_sequence=px.colors.sequential.Tealgrn),
+                            use_container_width=True)
+        with col2:
+            avg_aqi_src = df_filtered.groupby("predicted_source")["aqi"].mean().sort_values()
+            st.plotly_chart(px.bar(avg_aqi_src, x=avg_aqi_src.index, y='aqi',
+                                   text_auto='.2f', title="Average AQI by Source",
+                                   color=avg_aqi_src.index,
+                                   color_discrete_sequence=px.colors.qualitative.Vivid),
+                            use_container_width=True)
 
-        col3, col4 = st.columns(2)
-        with col3:
-            st.subheader("Source Distribution")
-            fig_pie = px.pie(df_filtered, names='final_prediction', color='final_prediction',
-                             color_discrete_map={'Vehicular':'blue','Industrial':'red','Burning':'orange','Dust':'gray','Other':'purple','Uncertain':'darkgreen'})
-            st.plotly_chart(fig_pie, use_container_width=True)
-
-        with col4:
-            st.subheader("Pollutant Trends (Hourly)")
-            chart_data = df_filtered.set_index('timestamp')[['pm2_5','pm10','no2','so2','o3','co']]
-            fig_line = px.line(chart_data, x=chart_data.index, y=chart_data.columns)
-            fig_line.update_layout(template="plotly_dark")
-            st.plotly_chart(fig_line, use_container_width=True)
-
-# --- ALERTS TAB ---
+# -------------------- ALERTS TAB --------------------
 with tab3:
-    st.header("⚠ Alerts")
-    alerts = df_filtered[df_filtered['aqi'] > 150]
-    if alerts.empty:
-        st.success("✅ No critical alerts. Air quality is safe.")
+    st.subheader("⚠️ High-Risk Pollution Alerts")
+    high_risk_df = df_filtered[df_filtered["aqi"] > 3.0]
+    if not high_risk_df.empty:
+        st.error(f"{len(high_risk_df)} areas exceed safe AQI limits!")
+        st.dataframe(high_risk_df[['city', 'name', 'predicted_source', 'aqi']])
     else:
-        for _, row in alerts.iterrows():
-            st.error(f"🚨 High AQI {row['aqi']} at {row['name']} ({row['city']})")
+        st.success("✅ All monitored areas are within safe AQI levels.")
 
-# --- PREDICT TAB ---
+# -------------------- PREDICT TAB --------------------
 with tab4:
-    st.header("🤖 Future Predictions")
-    if df_filtered.empty:
-        st.info("No data available for prediction right now.")
-    else:
-        preds_df = df_filtered[['timestamp','city','name','pm2_5','pm10','no2','so2','o3','co','aqi','final_prediction','prediction_confidence']].copy()
-        st.dataframe(preds_df.head(20))
+    st.subheader("🤖 Predict Pollution Source (What-If Analysis)")
 
-        # Download CSV
-        st.download_button(
-            "📥 Download Prediction Report (CSV)",
-            preds_df.to_csv(index=False).encode("utf-8"),
-            file_name="future_predictions.csv",
-            mime="text/csv"
-        )
+    try:
+        model = joblib.load("pollution_source_model.joblib")
+        scaler = joblib.load("data_scaler.joblib")
+    except FileNotFoundError:
+        st.error("⚠️ Model files missing. Please run training first.")
+        st.stop()
 
-        # PDF Export
-        if st.button("📑 Generate PDF Report"):
-            doc = SimpleDocTemplate("future_predictions.pdf", pagesize=A4)
-            styles = getSampleStyleSheet()
-            elements = []
+    features = [
+        'pm2_5', 'pm10', 'no2', 'so2', 'o3', 'co', 'aqi',
+        'latitude', 'longitude', 'dist_to_road_m', 'dist_to_industrial_m'
+    ]
 
-            elements.append(Paragraph("🌍 EnviroScan: Future Pollution Prediction Report", styles['Title']))
-            elements.append(Spacer(1, 12))
-            elements.append(Paragraph(f"Generated on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", styles['Normal']))
-            elements.append(Spacer(1, 20))
+    col_pred1, col_pred2 = st.columns(2)
+    inputs = {}
 
-            table_data = [preds_df.columns.tolist()] + preds_df.head(20).values.tolist()
-            table = Table(table_data)
-            table.setStyle(TableStyle([('BACKGROUND',(0,0),(-1,0),colors.grey),
-                                       ('TEXTCOLOR',(0,0),(-1,0),colors.whitesmoke),
-                                       ('ALIGN',(0,0),(-1,-1),'CENTER'),
-                                       ('FONTNAME',(0,0),(-1,0),'Helvetica-Bold'),
-                                       ('BOTTOMPADDING',(0,0),(-1,0),12),
-                                       ('BACKGROUND',(0,1),(-1,-1),colors.black),
-                                       ('GRID',(0,0),(-1,-1),0.5,colors.white)]))
-            elements.append(table)
+    with col_pred1:
+        st.markdown("##### Pollutant & AQI Values")
+        inputs['pm2_5'] = st.number_input("PM2.5", value=55.0, format="%.2f")
+        inputs['pm10'] = st.number_input("PM10", value=90.0, format="%.2f")
+        inputs['no2'] = st.number_input("NO2", value=45.0, format="%.2f")
+        inputs['so2'] = st.number_input("SO2", value=20.0, format="%.2f")
+        inputs['o3'] = st.number_input("O3", value=35.0, format="%.2f")
+        inputs['co'] = st.number_input("CO", value=1.2, format="%.2f")
+        inputs['aqi'] = st.number_input("Air Quality Index (AQI)", value=3.0, format="%.2f")
 
-            doc.build(elements)
-            st.success("✅ PDF report generated: future_predictions.pdf")
-            with open("future_predictions.pdf", "rb") as f:
-                st.download_button(
-                    "📥 Download PDF Report",
-                    f,
-                    file_name="future_predictions.pdf",
-                    mime="application/pdf"
-                )
+    with col_pred2:
+        st.markdown("##### Geospatial & Distance Features")
+        inputs['latitude'] = st.number_input("Latitude", value=28.61, format="%.4f")
+        inputs['longitude'] = st.number_input("Longitude", value=77.23, format="%.4f")
+        inputs['dist_to_road_m'] = st.number_input("Distance to Nearest Road (m)", value=200.0, format="%.1f")
+        inputs['dist_to_industrial_m'] = st.number_input("Distance to Industrial Zone (m)", value=1000.0, format="%.1f")
+
+    if st.button("🔮 Predict Source", use_container_width=True):
+        input_df = pd.DataFrame([inputs])[features]
+        input_scaled = scaler.transform(input_df)
+        pred = model.predict(input_scaled)[0]
+        probs = model.predict_proba(input_scaled)[0]
+
+        st.success(f"### Predicted Source: **{pred}**")
+
+        # --- Confidence Visualization ---
+        prob_df = pd.DataFrame({
+            'Source': model.classes_,
+            'Confidence (%)': probs * 100
+        }).sort_values(by='Confidence (%)', ascending=False)
+
+        fig_conf = px.bar(prob_df, x='Source', y='Confidence (%)',
+                          text_auto='.1f', title="Prediction Confidence by Source",
+                          color='Source', color_discrete_sequence=px.colors.qualitative.Bold)
+        st.plotly_chart(fig_conf, use_container_width=True)
+
+        # --- PDF REPORT EXPORT ---
+        if st.button("📄 Generate PDF Report"):
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            html = f"""
+            <h1 style='color:#00FFFF;'>🌍 EnviroScan Prediction Report</h1>
+            <p><b>Generated:</b> {timestamp}</p>
+            <h2 style='color:#00FFFF;'>Predicted Source: {pred}</h2>
+            <p><b>Input Values:</b></p>
+            {input_df.to_html(index=False)}
+            {px.pie(prob_df, names='Source', values='Confidence (%)', title='Source Probability Distribution').to_html(full_html=False, include_plotlyjs='cdn')}
+            {px.bar(prob_df, x='Source', y='Confidence (%)', title='Confidence Scores by Source').to_html(full_html=False, include_plotlyjs='cdn')}
+            """
+            pdfkit.from_string(html, "prediction_report.pdf")
+            with open("prediction_report.pdf", "rb") as f:
+                st.download_button("⬇️ Download Report (PDF)", f, file_name="prediction_report.pdf")

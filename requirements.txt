@@ -9,3 +9,5 @@ streamlit
 streamlit-folium
 plotly
 pdfkit
+prophet
+matplotlib
